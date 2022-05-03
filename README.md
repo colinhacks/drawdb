@@ -12,10 +12,12 @@ Alternatively, download the `incomplete` branch for a version that doesn't have 
 npx degit colinhacks/drawdb#incomplete drawdb
 ```
 
-Then install dependencies and run the application.
+Then install dependencies, initialize the EdgeDB project, generate the query builder, and run the application.
 
 ```bash
 cd drawdb
 yarn
+edgedb project init
+npx edgeql-js
 yarn dev
 ```
