@@ -1,5 +1,7 @@
 ## DrawDB
 
+![hello](public/hello.png)
+
 Download the app with `degit`.
 
 ```bash
