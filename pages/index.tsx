@@ -1,6 +1,7 @@
 import type {NextPage} from 'next';
 import Head from 'next/head';
 import {useEffect, useRef, useState} from 'react';
+import type {PostShape} from './api/shape';
 
 const shapeKeys = {
   circle: 'square',
@@ -8,16 +9,55 @@ const shapeKeys = {
   triangle: 'circle',
 } as const;
 type ShapeKey = keyof typeof shapeKeys;
-type Shape = {
+
+export type Shape = {
   type: ShapeKey;
   x: number;
   y: number;
 };
+
+function renderShape(ctx: CanvasRenderingContext2D, shape: PostShape) {
+  if (shape.__kind === 'circle') {
+    ctx.beginPath();
+    ctx.arc(shape.x, shape.y, shape.radius, 0, 2 * Math.PI);
+    ctx.fillStyle = shape.color;
+    ctx.fill();
+  } else if (shape.__kind === 'square') {
+    ctx.fillStyle = shape.color;
+    ctx.fillRect(shape.x, shape.y, shape.side_length, shape.side_length);
+  } else if (shape.__kind === 'triangle') {
+    ctx.beginPath();
+    ctx.moveTo(shape.x, shape.y);
+    ctx.lineTo(shape.x - 0.6 * shape.tri_width, shape.y + shape.tri_height);
+    ctx.lineTo(shape.x + 0.6 * shape.tri_width, shape.y + shape.tri_height);
+    ctx.closePath();
+    ctx.fillStyle = shape.color;
+    ctx.fill();
+  }
+}
+
 const Home: NextPage = () => {
   const [w, setW] = useState(0);
   const [h, setH] = useState(0);
   const [activeShape, setActiveShape] = useState<ShapeKey>('circle');
-  const [shapes, setShapes] = useState<Shape[]>([]);
+  const [shapes, setShapes] = useState<PostShape[]>([]);
+  const realCanvas = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    fetch('/api/shape', {
+      method: 'GET',
+    })
+      .then((resp) => resp.json())
+      .then((shapes: PostShape[]) => {
+        console.log(`fetched ${shapes.length} shapes!`);
+        console.log(shapes);
+        const ctx = realCanvas.current?.getContext('2d')!;
+        if (ctx) {
+          for (const shape of shapes) {
+            renderShape(ctx, shape);
+          }
+        }
+      });
+  });
 
   useEffect(() => {
     function handleResize() {
@@ -29,8 +69,6 @@ const Home: NextPage = () => {
 
     window.addEventListener('resize', handleResize);
   }, []);
-
-  const realCanvas = useRef<HTMLCanvasElement>(null);
 
   return (
     <div className={'container'}>
@@ -72,35 +110,48 @@ const Home: NextPage = () => {
         onClick={async (e) => {
           console.log(`adding ${activeShape}!`);
           const ctx = realCanvas.current?.getContext('2d')!;
-          const coords = {shape: activeShape, x: e.clientX, y: e.clientY};
-          console.log(coords);
+          const shapeData: Shape = {
+            type: activeShape,
+            x: e.clientX,
+            y: e.clientY,
+          };
 
-          // const resp = await fetch(`/api/shape`, {
-          //   method: 'POST',
-          //   headers: {
-          //     'Content-Type': 'application/json',
-          //   },
-          // });
-          // console.log(await resp.json());
-          const SIZE = 15;
-          const X = e.clientX;
-          const Y = e.clientY;
+          const resp = await fetch(`/api/shape`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(shapeData),
+          });
+          const shape: PostShape = await resp.json();
+          console.log(shape);
 
-          if (activeShape === 'circle') {
+          if (shape.__kind === 'circle') {
             ctx.beginPath();
-            ctx.arc(X, Y, SIZE / 2, 0, 2 * Math.PI);
-            ctx.fillStyle = 'red';
+            ctx.arc(shape.x, shape.y, shape.radius, 0, 2 * Math.PI);
+            ctx.fillStyle = shape.color;
             ctx.fill();
-          } else if (activeShape === 'square') {
-            ctx.fillStyle = 'red';
-            ctx.fillRect(X, Y, SIZE, SIZE);
-          } else if (activeShape === 'triangle') {
+          } else if (shape.__kind === 'square') {
+            ctx.fillStyle = shape.color;
+            ctx.fillRect(
+              shape.x,
+              shape.y,
+              shape.side_length,
+              shape.side_length
+            );
+          } else if (shape.__kind === 'triangle') {
             ctx.beginPath();
-            ctx.moveTo(X, Y);
-            ctx.lineTo(X - 0.6 * SIZE, Y + SIZE);
-            ctx.lineTo(X + 0.6 * SIZE, Y + SIZE);
+            ctx.moveTo(shape.x, shape.y);
+            ctx.lineTo(
+              shape.x - 0.6 * shape.tri_width,
+              shape.y + shape.tri_height
+            );
+            ctx.lineTo(
+              shape.x + 0.6 * shape.tri_width,
+              shape.y + shape.tri_height
+            );
             ctx.closePath();
-            ctx.fillStyle = 'red';
+            ctx.fillStyle = shape.color;
             ctx.fill();
           }
         }}
